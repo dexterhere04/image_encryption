@@ -7,5 +7,6 @@ using namespace std;
 
 // Apply Arnold's Cat Map scrambling
 vector<vector<unsigned char>> arnoldScramble(const vector<vector<unsigned char>>& image, int iterations);
+vector<vector<unsigned char>> arnoldUnscramble(const vector<vector<unsigned char>>& image, int iterations);
 
 #endif

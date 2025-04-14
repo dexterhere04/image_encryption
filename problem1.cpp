@@ -122,6 +122,52 @@ void displayPGM(const string& filename) {
     waitKey(0);  
     destroyAllWindows();
 }
+// decryption
+
+vector<vector<long long>> decryptImage(const vector<vector<long long>>& encryptedImage, PaillierKey key) {
+    int height = encryptedImage.size();
+    int width = encryptedImage[0].size();
+    vector<vector<long long>> decryptedImage(height, vector<long long>(width));
+
+    for (int i = 0; i < height; i++) {
+        for (int j = 0; j < width; j++) {
+            if ((i + j) % 4 == 0) {  
+                decryptedImage[i][j] = paillierDecrypt(encryptedImage[i][j], key);
+            } else {
+                decryptedImage[i][j] = encryptedImage[i][j];  // Non-encrypted pixels stay as-is
+            }
+        }
+    }
+    return decryptedImage;
+}
+
+vector<vector<unsigned char>> convertToUnsignedChar(const vector<vector<long long>>& image) {
+    int height = image.size();
+    int width = image[0].size();
+    vector<vector<unsigned char>> result(height, vector<unsigned char>(width));
+
+    for (int i = 0; i < height; i++) {
+        for (int j = 0; j < width; j++) {
+            result[i][j] = static_cast<unsigned char>(image[i][j]);
+        }
+    }
+    return result;
+}
+vector<vector<long long>> loadEncryptedImage(const string& filename, int height, int width) {
+    vector<vector<long long>> image(height, vector<long long>(width));
+    ifstream file(filename, ios::binary);
+    if (!file) {
+        cerr << "Error: Cannot open encrypted file!" << endl;
+        exit(1);
+    }
+
+    for (auto& row : image) {
+        file.read(reinterpret_cast<char*>(row.data()), row.size() * sizeof(long long));
+    }
+    file.close();
+    return image;
+}
+
 
 int main() {
     string filename = "input.jpg"; 
@@ -159,6 +205,16 @@ int main() {
     vector<vector<long long>> encryptedImage = encryptImage(scrambledImage, key);
     string encryptedFile = "encrypted.bin";
     saveEncryptedImage(encryptedFile, encryptedImage);
+    vector<vector<long long>> loadedEncrypted = loadEncryptedImage(encryptedFile, newHeight, newWidth);
+    vector<vector<long long>> decryptedLong = decryptImage(loadedEncrypted, key);
+    vector<vector<unsigned char>> decryptedImage = convertToUnsignedChar(decryptedLong);
+    string decryptedFile = "decrypted.pgm";
+    savePGM(decryptedFile, decryptedImage);
+    cout << "Decryption completed successfully!" << endl;
+    displayPGM(decryptedFile);
     cout << "Encryption completed successfully!" << endl;
+    auto unscrambled = arnoldUnscramble(decryptedImage, iterations);
+    savePGM("unscrambled.pgm", unscrambled);
+    displayPGM("unscrambled.pgm");
     return 0;
 }

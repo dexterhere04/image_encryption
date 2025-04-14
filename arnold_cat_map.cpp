@@ -18,3 +18,21 @@ vector<vector<unsigned char>> arnoldScramble(const vector<vector<unsigned char>>
     }
     return scrambled;
 }
+vector<vector<unsigned char>> arnoldUnscramble(const vector<vector<unsigned char>>& image, int iterations) {
+    int N = image.size();
+    vector<vector<unsigned char>> result = image;
+
+    for (int iter = 0; iter < iterations; iter++) {
+        vector<vector<unsigned char>> temp(N, vector<unsigned char>(N));
+        for (int x = 0; x < N; x++) {
+            for (int y = 0; y < N; y++) {
+                int newX = (2 * x - y + N) % N;
+                int newY = (-x + y + N) % N;
+                temp[newX][newY] = result[x][y];
+            }
+        }
+        result = temp;
+    }
+
+    return result;
+}
