@@ -2,8 +2,6 @@
 #include <fstream>
 #include <opencv2/opencv.hpp>
 #include <vector>
-#include "arnold_cat_map.h"  
-
 using namespace std;
 using namespace cv;
 struct PaillierKey {
@@ -22,9 +20,6 @@ PaillierKey generatePaillierKeys(long long p, long long q) {
 
 long long paillierEncrypt(long long m, PaillierKey key) {
     return (1 + (m * key.n)) % (key.n * key.n);
-}
-long long paillierDecrypt(long long c, PaillierKey key) {
-    return ((c - 1) / key.n) % key.n;
 }
 vector<vector<Vec3b>> matToVector(const Mat& image) {
     vector<vector<Vec3b>> imgVec(image.rows, vector<Vec3b>(image.cols));
@@ -80,7 +75,6 @@ vector<vector<long long>> encryptImage(const vector<vector<unsigned char>>& imag
     }
     return encryptedImage;
 }
-
 void saveEncryptedImage(const string& filename, const vector<vector<long long>>& image) {
     ofstream file(filename, ios::binary);
     if (!file) {
@@ -91,6 +85,15 @@ void saveEncryptedImage(const string& filename, const vector<vector<long long>>&
     for (const auto& row : image) {
         file.write(reinterpret_cast<const char*>(row.data()), row.size() * sizeof(long long));
     }
+    file.close();
+}
+void saveKey(const string& filename, const PaillierKey& key) {
+    ofstream file(filename);
+    if (!file) {
+        cerr << "Error: Cannot save key file!" << endl;
+        exit(1);
+    }
+    file << key.n << " " << key.g << " " << key.lambda << " " << key.mu << endl;
     file.close();
 }
 
@@ -110,7 +113,6 @@ void savePGM(const string& filename, const vector<vector<unsigned char>>& image)
     }
     file.close();
 }
-
 void displayPGM(const string& filename) {
     Mat image = imread(filename, IMREAD_GRAYSCALE);
     if (image.empty()) {
@@ -122,57 +124,26 @@ void displayPGM(const string& filename) {
     waitKey(0);  
     destroyAllWindows();
 }
-// decryption
+vector<vector<unsigned char>> arnoldScramble(const vector<vector<unsigned char>>& image, int iterations) {
+    int N = image.size();
+    vector<vector<unsigned char>> scrambled = image;
 
-vector<vector<long long>> decryptImage(const vector<vector<long long>>& encryptedImage, PaillierKey key) {
-    int height = encryptedImage.size();
-    int width = encryptedImage[0].size();
-    vector<vector<long long>> decryptedImage(height, vector<long long>(width));
-
-    for (int i = 0; i < height; i++) {
-        for (int j = 0; j < width; j++) {
-            if ((i + j) % 4 == 0) {  
-                decryptedImage[i][j] = paillierDecrypt(encryptedImage[i][j], key);
-            } else {
-                decryptedImage[i][j] = encryptedImage[i][j];  // Non-encrypted pixels stay as-is
+    for (int k = 0; k < iterations; k++) {
+        vector<vector<unsigned char>> temp(N, vector<unsigned char>(N));
+        for (int i = 0; i < N; i++) {
+            for (int j = 0; j < N; j++) {
+                int x_new = (i + j) % N;
+                int y_new = (i + 2 * j) % N;
+                temp[x_new][y_new] = scrambled[i][j];
             }
         }
+        scrambled = temp;
     }
-    return decryptedImage;
+    return scrambled;
 }
-
-vector<vector<unsigned char>> convertToUnsignedChar(const vector<vector<long long>>& image) {
-    int height = image.size();
-    int width = image[0].size();
-    vector<vector<unsigned char>> result(height, vector<unsigned char>(width));
-
-    for (int i = 0; i < height; i++) {
-        for (int j = 0; j < width; j++) {
-            result[i][j] = static_cast<unsigned char>(image[i][j]);
-        }
-    }
-    return result;
-}
-vector<vector<long long>> loadEncryptedImage(const string& filename, int height, int width) {
-    vector<vector<long long>> image(height, vector<long long>(width));
-    ifstream file(filename, ios::binary);
-    if (!file) {
-        cerr << "Error: Cannot open encrypted file!" << endl;
-        exit(1);
-    }
-
-    for (auto& row : image) {
-        file.read(reinterpret_cast<char*>(row.data()), row.size() * sizeof(long long));
-    }
-    file.close();
-    return image;
-}
-
-
-int main() {
-    string filename = "input.jpg"; 
+int main(){
+    string filename="input.jpg";
     Mat image = imread(filename, IMREAD_COLOR);
-
     if (image.empty()) {
         cerr << "Error: Cannot open image!" << endl;
         return -1;
@@ -180,41 +151,23 @@ int main() {
 
     
     vector<vector<Vec3b>> imgVec = matToVector(image);
-
     
     vector<vector<unsigned char>> grayscale = convertToGrayscale(imgVec);
-
+    savePGM("grayscale.pgm", grayscale);
+    displayPGM("grayscale.pgm");
    
     int newWidth = 128, newHeight = 128;
     vector<vector<unsigned char>> resizedImage = resizeImage(grayscale, newWidth, newHeight);
-    string resizedFile = "grey_resized.pgm";
-    savePGM(resizedFile,resizedImage);
-    displayPGM(resizedFile);
-   
+    savePGM("resized.pgm", resizedImage);
+    displayPGM("resized.pgm");
     int iterations = 10; 
     vector<vector<unsigned char>> scrambledImage = arnoldScramble(resizedImage, iterations);
-
-
-    string scrambledFile = "scrambled.pgm";
-    savePGM(scrambledFile, scrambledImage);
-
-    cout << "Image scrambling completed successfully!" << endl;
-    displayPGM(scrambledFile);
-
+    savePGM("scrambled.pgm",scrambledImage);
+    displayPGM("scrambled.pgm");
     PaillierKey key = generatePaillierKeys(61, 53);
     vector<vector<long long>> encryptedImage = encryptImage(scrambledImage, key);
     string encryptedFile = "encrypted.bin";
+    saveKey("key.txt", key);
     saveEncryptedImage(encryptedFile, encryptedImage);
-    vector<vector<long long>> loadedEncrypted = loadEncryptedImage(encryptedFile, newHeight, newWidth);
-    vector<vector<long long>> decryptedLong = decryptImage(loadedEncrypted, key);
-    vector<vector<unsigned char>> decryptedImage = convertToUnsignedChar(decryptedLong);
-    string decryptedFile = "decrypted.pgm";
-    savePGM(decryptedFile, decryptedImage);
-    cout << "Decryption completed successfully!" << endl;
-    displayPGM(decryptedFile);
-    cout << "Encryption completed successfully!" << endl;
-    auto unscrambled = arnoldUnscramble(decryptedImage, iterations);
-    savePGM("unscrambled.pgm", unscrambled);
-    displayPGM("unscrambled.pgm");
-    return 0;
+    
 }
