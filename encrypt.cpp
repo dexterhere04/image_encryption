@@ -141,8 +141,15 @@ vector<vector<unsigned char>> arnoldScramble(const vector<vector<unsigned char>>
     }
     return scrambled;
 }
-int main(){
-    string filename="input.jpg";
+int main(int argc, char* argv[]){
+    //string filename="input.jpg";
+    if (argc != 3) {
+        cerr << "Usage: " << argv[0] << " <image_path> <key_output_path>" << endl;
+        return 1;
+    }
+
+    string filename = argv[1];
+    string keyPath = argv[2];
     Mat image = imread(filename, IMREAD_COLOR);
     if (image.empty()) {
         cerr << "Error: Cannot open image!" << endl;
@@ -166,8 +173,8 @@ int main(){
     displayPGM("scrambled.pgm");
     PaillierKey key = generatePaillierKeys(61, 53);
     vector<vector<long long>> encryptedImage = encryptImage(scrambledImage, key);
-    string encryptedFile = "encrypted.bin";
-    saveKey("key.txt", key);
+    string encryptedFile = keyPath+"/encrypted.bin";
+    saveKey(keyPath+"/key.txt", key);
     saveEncryptedImage(encryptedFile, encryptedImage);
     
 }

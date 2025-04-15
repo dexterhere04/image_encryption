@@ -110,9 +110,14 @@ vector<vector<unsigned char>> arnoldUnscramble(const vector<vector<unsigned char
 
     return result;
 }
-int main(){
-    PaillierKey key = loadKey("key.txt");
-    string encryptedFile = "encrypted.bin";
+int main(int argc,char* argv[]){
+    if (argc != 2) {
+        cerr << "Usage: " << argv[0] << "<directory>" << endl;
+        return 1;
+    }
+    string directory = argv[1];   
+    PaillierKey key = loadKey(directory+"/key.txt");
+    string encryptedFile = directory+"/encrypted.bin";
     int newWidth = 128, newHeight = 128;
     int iterations=10;
     vector<vector<long long>> loadedEncrypted = loadEncryptedImage(encryptedFile, newHeight, newWidth);
@@ -122,7 +127,6 @@ int main(){
     savePGM(decryptedFile, decryptedImage);
     cout << "Decryption completed successfully!" << endl;
     displayPGM(decryptedFile);
-    cout << "Encryption completed successfully!" << endl;
     auto unscrambled = arnoldUnscramble(decryptedImage, iterations);
     savePGM("unscrambled.pgm", unscrambled);
     displayPGM("unscrambled.pgm");
